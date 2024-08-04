@@ -15,11 +15,15 @@
 
 struct MLISP_DATA {
    int init;
+   struct MLISP_PARSER parser;
+   struct MLISP_EXEC_STATE exec;
+   uint8_t do_exec;
 };
 
 void mlisp_loop( struct MLISP_DATA* data ) {
    RETROFLAT_IN_KEY input = 0;
    struct RETROFLAT_INPUT input_evt;
+   MERROR_RETVAL retval = MERROR_EXEC;
 
    /* Input */
 
@@ -35,6 +39,20 @@ void mlisp_loop( struct MLISP_DATA* data ) {
 
    retroflat_draw_lock( NULL );
 
+   if(
+      data->do_exec &&
+      (retval = mlisp_step( &(data->parser), &(data->exec) ))
+   ) {
+      debug_printf( 1, "execution terminated with retval: %d", retval );
+      mlisp_stack_dump( &(data->parser), &(data->exec) );
+      mlisp_env_dump( &(data->parser), &(data->exec) );
+      data->do_exec = 0;
+   } else if( MERROR_OK == retval ) {
+      mlisp_ast_dump( &(data->parser), 0, 0, 0 );
+      mlisp_stack_dump( &(data->parser), &(data->exec) );
+      mlisp_env_dump( &(data->parser), &(data->exec) );
+   }
+
    retroflat_rect(
       NULL, RETROFLAT_COLOR_BLACK, 0, 0,
       retroflat_screen_w(), retroflat_screen_h(),
@@ -48,10 +66,11 @@ int main( int argc, char** argv ) {
    struct RETROFLAT_ARGS args;
    MAUG_MHANDLE data_h = (MAUG_MHANDLE)NULL;
    struct MLISP_DATA* data = NULL;
-   struct MLISP_PARSER parser;
    size_t i = 0;
-   char test_lisp[] = "(begin  (define pi 3.14)  (define r 10)\n (* pi (* r r)))";
-   struct MLISP_EXEC_STATE exec;
+   FILE* lisp_f = NULL;
+   size_t lisp_sz = 0;
+   char* lisp_buf = NULL;
+   size_t lisp_read = 0;
 
    /* === Setup === */
 
@@ -73,24 +92,29 @@ int main( int argc, char** argv ) {
    maug_cleanup_if_null_alloc( struct MLISP_DATA*, data );
    maug_mzero( data, sizeof( struct MLISP_DATA ) );
 
-   retval = mlisp_parser_init( &parser );
+   retval = mlisp_parser_init( &(data->parser) );
    maug_cleanup_if_not_ok();
 
-   debug_printf( 1, "%s", test_lisp );
-   for( i = 0 ; sizeof( test_lisp ) > i ; i++ ) {
-      retval = mlisp_parse_c( &parser, test_lisp[i] );
+   lisp_f = fopen( "test.lisp", "r" );
+   fseek( lisp_f, 0, SEEK_END );
+   lisp_sz = ftell( lisp_f );
+   fseek( lisp_f, 0, SEEK_SET );
+   lisp_buf = calloc( lisp_sz + 1, 1 );
+   maug_cleanup_if_null_alloc( char*, lisp_buf );
+   lisp_read = fread( lisp_buf, 1, lisp_sz, lisp_f );
+   assert( lisp_read == lisp_sz );
+
+   debug_printf( 1, "%s", lisp_buf );
+   for( i = 0 ; lisp_sz > i ; i++ ) {
+      retval = mlisp_parse_c( &(data->parser), lisp_buf[i] );
       maug_cleanup_if_not_ok();
    }
-   assert( 0 == parser.base.pstate_sz );
-   mlisp_ast_dump( &parser, 0, 0, 0 );
+   assert( 0 == data->parser.base.pstate_sz );
+   mlisp_ast_dump( &(data->parser), 0, 0, 0 );
 
-   parser.ast_node_iter = 0;
-   maug_mzero( &exec, sizeof( struct MLISP_EXEC_STATE ) );
-   while( !mlisp_step( &parser, &exec ) ) {
-      
-   }
-   mlisp_ast_dump( &parser, 0, 0, 0 );
-   mlisp_stack_dump( &parser, &exec );
+   retval = mlisp_exec_init( &(data->parser), &(data->exec) );
+
+   data->do_exec = 1;
 
    /* === Main Loop === */
 
@@ -100,9 +124,17 @@ cleanup:
 
 #ifndef RETROFLAT_OS_WASM
 
-   mlisp_exec_free( &exec );
+   if( NULL != lisp_f ) {
+      fclose( lisp_f );
+   }
 
-   mlisp_parser_free( &parser );
+   if( NULL != lisp_buf ) {
+      free( lisp_buf );
+   }
+
+   mlisp_exec_free( &(data->exec) );
+
+   mlisp_parser_free( &(data->parser) );
 
    if( NULL != data ) {
       maug_munlock( data_h, data );
