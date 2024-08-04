@@ -11,7 +11,8 @@
 #include <retrofnt.h>
 #include <retrogui.h>
 #include <retrohtr.h>
-#include <mlisp.h>
+#include <mlispp.h>
+#include <mlispe.h>
 
 struct MLISP_DATA {
    int init;
@@ -109,8 +110,8 @@ int main( int argc, char** argv ) {
       retval = mlisp_parse_c( &(data->parser), lisp_buf[i] );
       maug_cleanup_if_not_ok();
    }
-   assert( 0 == data->parser.base.pstate_sz );
    mlisp_ast_dump( &(data->parser), 0, 0, 0 );
+   assert( 0 == data->parser.base.pstate_sz );
 
    retval = mlisp_exec_init( &(data->parser), &(data->exec) );
 
