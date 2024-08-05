@@ -18,8 +18,40 @@ struct MLISP_DATA {
    int init;
    struct MLISP_PARSER parser;
    struct MLISP_EXEC_STATE exec;
+   MAUG_MHANDLE font_h;
    uint8_t do_exec;
 };
+
+MERROR_RETVAL mlisp_cb_write(
+   struct MLISP_PARSER* parser, struct MLISP_EXEC_STATE* exec,
+   void* cb_data, uint8_t flags
+) {
+   MERROR_RETVAL retval = MERROR_OK;
+   struct MLISP_STACK_NODE val;
+   char write_buf[256];
+   struct MLISP_DATA* mlisp_data = (struct MLISP_DATA*)cb_data;
+
+   maug_mzero( write_buf, 256 );
+
+   #  define _MLISP_TYPE_TABLE_WRITE( idx, ctype, name, const_name, fmt ) \
+      } else if( MLISP_TYPE_ ## const_name == val.type ) { \
+         maug_snprintf( write_buf, 255, fmt, val.value.name );
+
+   retval = mlisp_stack_pop( exec, &(val) );
+   maug_cleanup_if_not_ok();
+
+   if( 0 ) {
+   MLISP_TYPE_TABLE( _MLISP_TYPE_TABLE_WRITE )
+   }
+
+   retrofont_string(
+      NULL, RETROFLAT_COLOR_WHITE, write_buf, 0, mlisp_data->font_h, 10, 10,
+      0, 0, 0 );
+
+cleanup:
+
+   return retval;
+}
 
 void mlisp_loop( struct MLISP_DATA* data ) {
    RETROFLAT_IN_KEY input = 0;
@@ -44,7 +76,6 @@ void mlisp_loop( struct MLISP_DATA* data ) {
       data->do_exec &&
       (retval = mlisp_step( &(data->parser), &(data->exec) ))
    ) {
-      debug_printf( 1, "execution terminated with retval: %d", retval );
       mlisp_stack_dump( &(data->parser), &(data->exec) );
       mlisp_env_dump( &(data->parser), &(data->exec) );
       data->do_exec = 0;
@@ -54,10 +85,12 @@ void mlisp_loop( struct MLISP_DATA* data ) {
       mlisp_env_dump( &(data->parser), &(data->exec) );
    }
 
+   /*
    retroflat_rect(
       NULL, RETROFLAT_COLOR_BLACK, 0, 0,
       retroflat_screen_w(), retroflat_screen_h(),
       RETROFLAT_FLAGS_FILL );
+   */
 
    retroflat_draw_release( NULL );
 }
@@ -93,6 +126,10 @@ int main( int argc, char** argv ) {
    maug_cleanup_if_null_alloc( struct MLISP_DATA*, data );
    maug_mzero( data, sizeof( struct MLISP_DATA ) );
 
+   retval = retrofont_load(
+      "unscii-8.hex", &(data->font_h), 0, 33, 93 );
+   maug_cleanup_if_not_ok();
+
    retval = mlisp_parser_init( &(data->parser) );
    maug_cleanup_if_not_ok();
 
@@ -115,11 +152,34 @@ int main( int argc, char** argv ) {
 
    retval = mlisp_exec_init( &(data->parser), &(data->exec) );
 
+   retval = mlisp_env_set(
+      &(data->parser), &(data->exec), "write", 5, MLISP_TYPE_CB, mlisp_cb_write,
+      data, MLISP_ENV_FLAG_BUILTIN );
+   maug_cleanup_if_not_ok();
+
+   debug_printf( 1, "mlisp uses: " SIZE_T_FMT " bytes RAM",
+      sizeof( struct MLISP_PARSER ) +
+      mdata_vector_sz( &(data->parser.ast) ) +
+      mdata_strpool_sz( &(data->parser.strpool) ) +
+      sizeof( struct MLISP_EXEC_STATE ) +
+      mdata_vector_sz( &(data->exec.per_node_child_idx) ) +
+      mdata_vector_sz( &(data->exec.stack) ) +
+      mdata_vector_sz( &(data->exec.env) ) );
+
    data->do_exec = 1;
 
    /* === Main Loop === */
 
    retroflat_loop( (retroflat_loop_iter)mlisp_loop, NULL, data );
+
+   debug_printf( 1, "mlisp uses: " SIZE_T_FMT " bytes RAM",
+      sizeof( struct MLISP_PARSER ) +
+      mdata_vector_sz( &(data->parser.ast) ) +
+      mdata_strpool_sz( &(data->parser.strpool) ) +
+      sizeof( struct MLISP_EXEC_STATE ) +
+      mdata_vector_sz( &(data->exec.per_node_child_idx) ) +
+      mdata_vector_sz( &(data->exec.stack) ) +
+      mdata_vector_sz( &(data->exec.env) ) );
 
 cleanup:
 
@@ -132,6 +192,8 @@ cleanup:
    if( NULL != lisp_buf ) {
       free( lisp_buf );
    }
+
+   maug_mfree( data->font_h );
 
    mlisp_exec_free( &(data->exec) );
 
