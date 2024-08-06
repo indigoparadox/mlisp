@@ -1,0 +1,12 @@
+*.log
+obj
+*.map
+*.out
+*.sdl
+*.exe
+*.err
+*.rex
+*.wasm
+*.js
+*.html
+*.ale

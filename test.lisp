@@ -1,5 +1,8 @@
 
 (begin
+   (define plusfour
+      (lambda (y z)
+         (if (< z 4) (plusthree (+ y 1) (+ z 1)) y)))
    (define plusthree
       (lambda (y z)
          (if (< z 3) (plusthree (+ y 1) (+ z 1)) y)))

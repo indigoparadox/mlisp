@@ -23,7 +23,7 @@ struct MLISP_DATA {
 };
 
 MERROR_RETVAL mlisp_cb_write(
-   struct MLISP_PARSER* parser, struct MLISP_EXEC_STATE* exec,
+   struct MLISP_PARSER* parser, struct MLISP_EXEC_STATE* exec, size_t n_idx,
    void* cb_data, uint8_t flags
 ) {
    MERROR_RETVAL retval = MERROR_OK;
