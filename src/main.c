@@ -23,6 +23,7 @@ struct MLISP_DATA {
    struct MLISP_EXEC_STATE exec;
    MAUG_MHANDLE font_h;
    uint8_t do_exec;
+   size_t last_y;
 };
 
 MERROR_RETVAL mlisp_cb_write(
@@ -48,8 +49,11 @@ MERROR_RETVAL mlisp_cb_write(
    }
 
    retrofont_string(
-      NULL, RETROFLAT_COLOR_WHITE, write_buf, 0, mlisp_data->font_h, 10, 10,
+      NULL, RETROFLAT_COLOR_WHITE, write_buf, 0, mlisp_data->font_h,
+      10, mlisp_data->last_y,
       0, 0, 0 );
+
+   mlisp_data->last_y += 10;
 
 cleanup:
 
@@ -132,6 +136,8 @@ int main( int argc, char** argv ) {
    maug_mlock( data_h, data );
    maug_cleanup_if_null_alloc( struct MLISP_DATA*, data );
    maug_mzero( data, sizeof( struct MLISP_DATA ) );
+   
+   data->last_y = 10;
 
    memset( &args, '\0', sizeof( struct RETROFLAT_ARGS ) );
 
