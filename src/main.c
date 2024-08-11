@@ -24,6 +24,7 @@ struct MLISP_DATA {
    MAUG_MHANDLE font_h;
    uint8_t do_exec;
    size_t last_y;
+   char open_filename[RETROFLAT_PATH_MAX + 1];
 };
 
 MERROR_RETVAL mlisp_cb_write(
@@ -111,8 +112,22 @@ void mlisp_loop( struct MLISP_DATA* data ) {
    retroflat_draw_release( NULL );
 }
 
-static int mlisp_cli_step( const char* arg, struct MLISP_DATA* data ) {
-   data->flags |= MLISP_FLAG_DO_STEP;
+static int mlisp_cli_step(
+   const char* arg, ssize_t arg_c, struct MLISP_DATA* data
+) {
+   if( 1 == arg_c ) {
+      data->flags |= MLISP_FLAG_DO_STEP;
+   }
+   return RETROFLAT_OK;
+}
+
+static int mlisp_cli_file(
+   const char* arg, ssize_t arg_c, struct MLISP_DATA* data
+) {
+   debug_printf( 1, "POS ARG: " SSIZE_T_FMT, arg_c );
+   if( 2 == arg_c ) {
+      strncpy( data->open_filename, arg, RETROFLAT_PATH_MAX );
+   }
    return RETROFLAT_OK;
 }
 
@@ -121,11 +136,8 @@ int main( int argc, char** argv ) {
    struct RETROFLAT_ARGS args;
    MAUG_MHANDLE data_h = (MAUG_MHANDLE)NULL;
    struct MLISP_DATA* data = NULL;
-   size_t i = 0;
-   FILE* lisp_f = NULL;
-   size_t lisp_sz = 0;
-   char* lisp_buf = NULL;
-   size_t lisp_read = 0;
+   mfile_t lisp_file;
+   char c;
 
    /* === Setup === */
 
@@ -146,7 +158,12 @@ int main( int argc, char** argv ) {
 
 	retval = maug_add_arg( MAUG_CLI_SIGIL "s", MAUG_CLI_SIGIL_SZ + 1,
       "Step through script with SPACE.", 0,
-      (maug_cli_cb)mlisp_cli_step, NULL, data );
+      (maug_cli_cb)mlisp_cli_step, data );
+   maug_cleanup_if_not_ok();
+
+	retval = maug_add_arg( MAUG_CLI_SIGIL "f", MAUG_CLI_SIGIL_SZ + 1,
+      "Run the given file.", 0,
+      (maug_cli_cb)mlisp_cli_file, data );
    maug_cleanup_if_not_ok();
    
    retval = retroflat_init( argc, argv, &args );
@@ -161,18 +178,13 @@ int main( int argc, char** argv ) {
    retval = mlisp_parser_init( &(data->parser) );
    maug_cleanup_if_not_ok();
 
-   lisp_f = fopen( "test.lisp", "r" );
-   fseek( lisp_f, 0, SEEK_END );
-   lisp_sz = ftell( lisp_f );
-   fseek( lisp_f, 0, SEEK_SET );
-   lisp_buf = calloc( lisp_sz + 1, 1 );
-   maug_cleanup_if_null_alloc( char*, lisp_buf );
-   lisp_read = fread( lisp_buf, 1, lisp_sz, lisp_f );
-   assert( lisp_read == lisp_sz );
+   retval = mfile_open_read( data->open_filename, &lisp_file );
+   maug_cleanup_if_not_ok();
 
-   debug_printf( 1, "%s", lisp_buf );
-   for( i = 0 ; lisp_sz > i ; i++ ) {
-      retval = mlisp_parse_c( &(data->parser), lisp_buf[i] );
+   while( mfile_has_bytes( &lisp_file ) ) {
+      retval = mfile_file_read_int( &lisp_file, (uint8_t*)&c, 1, 0 );
+      maug_cleanup_if_not_ok();
+      retval = mlisp_parse_c( &(data->parser), c );
       maug_cleanup_if_not_ok();
    }
    mlisp_ast_dump( &(data->parser), 0, 0, 0 );
@@ -215,13 +227,7 @@ cleanup:
 
 #ifndef RETROFLAT_OS_WASM
 
-   if( NULL != lisp_f ) {
-      fclose( lisp_f );
-   }
-
-   if( NULL != lisp_buf ) {
-      free( lisp_buf );
-   }
+   mfile_close( &lisp_file );
 
    maug_mfree( data->font_h );
 
