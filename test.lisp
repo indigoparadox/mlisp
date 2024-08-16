@@ -12,5 +12,7 @@
    (define c (+ -1 (* pi (* r r))))
    (define d (plusn 8 0 3))
    (begin
-      (write d)))
+      (write d)
+      (rect 50 50 20 20)
+      ))
 

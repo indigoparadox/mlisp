@@ -36,6 +36,19 @@ MERROR_RETVAL mlisp_cb_write(
    char write_buf[256];
    struct MLISP_DATA* mlisp_data = (struct MLISP_DATA*)cb_data;
 
+   if( !retroflat_is_waiting_for_frame() ) {
+      /* This call draws, so only call it on a drawing frame! */
+      debug_printf( MLISP_EXEC_TRACE_LVL, "waiting for frame..." );
+      retroflat_wait_for_frame();
+      retval = MERROR_PREEMPT;
+      goto cleanup;
+   }
+
+   /* We were already waiting for frame when this was called, so this must
+    * be a frame! */
+
+   debug_printf( MLISP_EXEC_TRACE_LVL, "entered frame!" );
+
    maug_mzero( write_buf, 256 );
 
    #  define _MLISP_TYPE_TABLE_WRITE( idx, ctype, name, const_name, fmt ) \
@@ -60,6 +73,53 @@ cleanup:
 
    return retval;
 }
+
+MERROR_RETVAL mlisp_cb_shape(
+   struct MLISP_PARSER* parser, struct MLISP_EXEC_STATE* exec, size_t n_idx,
+   size_t args_c, void* cb_data, uint8_t flags
+) {
+   MERROR_RETVAL retval = MERROR_OK;
+   struct MLISP_STACK_NODE val;
+   int16_t coords[4]; /* x, y, w, h */
+   size_t i = 0;
+
+   if( !retroflat_is_waiting_for_frame() ) {
+      /* This call draws, so only call it on a drawing frame! */
+      debug_printf( MLISP_EXEC_TRACE_LVL, "waiting for frame..." );
+      retroflat_wait_for_frame();
+      retval = MERROR_PREEMPT;
+      goto cleanup;
+   }
+
+   /* We were already waiting for frame when this was called, so this must
+    * be a frame! */
+
+   debug_printf( MLISP_EXEC_TRACE_LVL, "entered frame!" );
+
+   for( i = 0 ; 4 > i ; i++ ) {
+      retval = mlisp_stack_pop( exec, &(val) );
+      maug_cleanup_if_not_ok();
+
+      if( MLISP_TYPE_INT != val.type ) {
+         error_printf( "invalid coordinate type: %d", val.type );
+         retval = MERROR_EXEC;
+         goto cleanup;
+      }
+
+      coords[i] = val.value.integer;
+   }
+
+   
+   retroflat_rect(
+      NULL, RETROFLAT_COLOR_BLUE,
+      coords[0], coords[1], coords[2], coords[3], 0 );
+
+cleanup:
+
+   return retval;
+}
+
+
 
 void mlisp_loop( struct MLISP_DATA* data ) {
    RETROFLAT_IN_KEY input = 0;
@@ -193,7 +253,14 @@ int main( int argc, char** argv ) {
    retval = mlisp_exec_init( &(data->parser), &(data->exec) );
 
    retval = mlisp_env_set(
-      &(data->parser), &(data->exec), "write", 5, MLISP_TYPE_CB, mlisp_cb_write,
+      &(data->parser), &(data->exec), "write", 5,
+      MLISP_TYPE_CB, mlisp_cb_write,
+      data, MLISP_ENV_FLAG_BUILTIN );
+   maug_cleanup_if_not_ok();
+
+   retval = mlisp_env_set(
+      &(data->parser), &(data->exec), "rect", 4,
+      MLISP_TYPE_CB, mlisp_cb_shape,
       data, MLISP_ENV_FLAG_BUILTIN );
    maug_cleanup_if_not_ok();
 
@@ -212,7 +279,8 @@ int main( int argc, char** argv ) {
 
    /* === Main Loop === */
 
-   retroflat_loop( (retroflat_loop_iter)mlisp_loop, NULL, data );
+   retroflat_loop(
+      (retroflat_loop_iter)mlisp_loop, (retroflat_loop_iter)mlisp_loop, data );
 
    debug_printf( 1, "mlisp uses: " SIZE_T_FMT " bytes RAM",
       sizeof( struct MLISP_PARSER ) +
