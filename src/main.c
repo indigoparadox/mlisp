@@ -16,6 +16,12 @@
 
 #define MLISP_FLAG_DO_STEP 0x02
 
+#define MLISP_CB_SHAPE_FLAG_RECT 0x10
+
+#define MLISP_CB_SHAPE_FLAG_ELLIPSE 0x20
+
+#define MLISP_CB_SHAPE_FLAG_FILL 0x80
+
 struct MLISP_DATA {
    int init;
    uint8_t flags;
@@ -109,10 +115,21 @@ MERROR_RETVAL mlisp_cb_shape(
       coords[i] = val.value.integer;
    }
 
-   
-   retroflat_rect(
-      NULL, RETROFLAT_COLOR_BLUE,
-      coords[0], coords[1], coords[2], coords[3], 0 );
+   if( MLISP_CB_SHAPE_FLAG_RECT == (MLISP_CB_SHAPE_FLAG_RECT & flags) ) {
+      retroflat_rect(
+         NULL, RETROFLAT_COLOR_BLUE,
+         coords[0], coords[1], coords[2], coords[3],
+         MLISP_CB_SHAPE_FLAG_FILL == (MLISP_CB_SHAPE_FLAG_FILL & flags) ?
+            RETROFLAT_FLAGS_FILL : 0 );
+   } else if(
+      MLISP_CB_SHAPE_FLAG_ELLIPSE == (MLISP_CB_SHAPE_FLAG_ELLIPSE & flags)
+   ) {
+      retroflat_ellipse(
+         NULL, RETROFLAT_COLOR_BLUE,
+         coords[0], coords[1], coords[2], coords[3],
+         MLISP_CB_SHAPE_FLAG_FILL == (MLISP_CB_SHAPE_FLAG_FILL & flags) ?
+            RETROFLAT_FLAGS_FILL : 0 );
+   }
 
 cleanup:
 
@@ -261,7 +278,11 @@ int main( int argc, char** argv ) {
    retval = mlisp_env_set(
       &(data->parser), &(data->exec), "rect", 4,
       MLISP_TYPE_CB, mlisp_cb_shape,
-      data, MLISP_ENV_FLAG_BUILTIN );
+      data, MLISP_ENV_FLAG_BUILTIN | MLISP_CB_SHAPE_FLAG_RECT );
+   retval = mlisp_env_set(
+      &(data->parser), &(data->exec), "ellipse", 4,
+      MLISP_TYPE_CB, mlisp_cb_shape,
+      data, MLISP_ENV_FLAG_BUILTIN | MLISP_CB_SHAPE_FLAG_ELLIPSE );
    maug_cleanup_if_not_ok();
 
    debug_printf( 1,
