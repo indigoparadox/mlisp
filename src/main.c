@@ -282,7 +282,7 @@ int main( int argc, char** argv ) {
    mlisp_ast_dump( &(data->parser), 0, 0, 0 );
    assert( 0 == data->parser.base.pstate_sz );
 
-   retval = mlisp_exec_init( &(data->parser), &(data->exec) );
+   retval = mlisp_exec_init( &(data->parser), &(data->exec), 0 );
 
    retval = mlisp_env_set(
       &(data->parser), &(data->exec), "write", 5,

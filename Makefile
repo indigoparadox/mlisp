@@ -16,7 +16,7 @@ include maug/Makefile.inc
 # Target-specific options.
 .PHONY: clean
 
-all: mlisp.ale mlisp.sdl mlispd.exe mlispw.exe mlispnt.exe mlisp.html mlispb.exe
+all: mlisp.ale mlisp.sdl mlispd.exe mlispw.exe mlispnt.exe mlisp.html mlispb.exe mlispnts.exe
 
 # Unix (Allegro)
 
@@ -40,9 +40,25 @@ $(eval $(call TGTDOSALE,mlisp))
 
 $(eval $(call TGTWINNT,mlisp))
 
+$(eval $(call TGTWINSDL,mlisp))
+
+$(eval $(call TGT_GCC_WIN_WIN32,mlisp))
+
 # Win386
 
 $(eval $(call TGTWIN386,mlisp))
+
+# Win16
+
+$(eval $(call TGTWIN16,mlisp))
+
+# WinCE
+
+$(eval $(call TGT_CECL_WINCE_SH3,mlisp))
+
+$(eval $(call TGT_CECL_WINCE_MIPS,mlisp))
+
+$(eval $(call TGT_CECL_WINCE_X86,mlisp))
 
 # Clean
 
