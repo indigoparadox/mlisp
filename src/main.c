@@ -30,7 +30,7 @@ struct MLISP_DATA {
    MAUG_MHANDLE font_h;
    uint8_t do_exec;
    size_t last_y;
-   char open_filename[RETROFLAT_PATH_MAX + 1];
+   char open_filename[MAUG_PATH_SZ_MAX + 1];
 };
 
 MERROR_RETVAL mlisp_cb_write(
@@ -217,7 +217,7 @@ static int mlisp_cli_file(
 ) {
    debug_printf( 1, "POS ARG: " SSIZE_T_FMT, arg_c );
    if( 2 == arg_c ) {
-      strncpy( data->open_filename, arg, RETROFLAT_PATH_MAX );
+      strncpy( data->open_filename, arg, MAUG_PATH_SZ_MAX );
    }
    return RETROFLAT_OK;
 }
@@ -273,7 +273,7 @@ int main( int argc, char** argv ) {
    retval = mfile_open_read( data->open_filename, &lisp_file );
    maug_cleanup_if_not_ok();
 
-   while( mfile_has_bytes( &lisp_file ) ) {
+   while( lisp_file.has_bytes( &lisp_file ) ) {
       retval = mfile_file_read_int( &lisp_file, (uint8_t*)&c, 1, 0 );
       maug_cleanup_if_not_ok();
       retval = mlisp_parse_c( &(data->parser), c );
