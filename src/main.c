@@ -182,14 +182,18 @@ void mlisp_loop( struct MLISP_DATA* data ) {
          data->do_exec &&
          (retval = mlisp_step( &(data->parser), &(data->exec) ))
       ) {
+#ifdef MLISP_DUMP_ENABLED
          mlisp_stack_dump( &(data->parser), &(data->exec) );
          mlisp_env_dump( &(data->parser), &(data->exec) );
+#endif /* MLISP_DUMP_ENABLED */
          data->do_exec = 0;
 
       } else if( MERROR_OK == retval ) {
+#ifdef MLISP_DUMP_ENABLED
          mlisp_ast_dump( &(data->parser), 0, 0, 0 );
          mlisp_stack_dump( &(data->parser), &(data->exec) );
          mlisp_env_dump( &(data->parser), &(data->exec) );
+#endif /* MLISP_DUMP_ENABLED */
       }
    }
 
@@ -215,8 +219,8 @@ static int mlisp_cli_step(
 static int mlisp_cli_file(
    const char* arg, ssize_t arg_c, struct MLISP_DATA* data
 ) {
-   debug_printf( 1, "POS ARG: " SSIZE_T_FMT, arg_c );
-   if( 2 == arg_c ) {
+   debug_printf( 1, "POS ARG: " SSIZE_T_FMT ": %s", arg_c, arg );
+   if( 3 == arg_c ) {
       strncpy( data->open_filename, arg, MAUG_PATH_SZ_MAX );
    }
    return RETROFLAT_OK;
@@ -279,39 +283,37 @@ int main( int argc, char** argv ) {
       retval = mlisp_parse_c( &(data->parser), c );
       maug_cleanup_if_not_ok();
    }
+#ifdef MLISP_DUMP_ENABLED
    mlisp_ast_dump( &(data->parser), 0, 0, 0 );
+#endif /* MLISP_DUMP_ENABLED */
    assert( 0 == data->parser.base.pstate_sz );
 
    retval = mlisp_exec_init( &(data->parser), &(data->exec), 0 );
 
    retval = mlisp_env_set(
-      &(data->parser), &(data->exec), "write", 5,
-      MLISP_TYPE_CB, mlisp_cb_write,
-      data, MLISP_ENV_FLAG_BUILTIN );
+      &(data->exec), "write", 5, MLISP_TYPE_CB, mlisp_cb_write,
+      0, MLISP_ENV_FLAG_BUILTIN );
    maug_cleanup_if_not_ok();
 
    color_i = RETROFLAT_COLOR_BLACK;
    retval = mlisp_env_set(
-      &(data->parser), &(data->exec), "black", 5,
-      MLISP_TYPE_INT, &color_i, data, MLISP_ENV_FLAG_BUILTIN );
+      &(data->exec), "black", 5,
+      MLISP_TYPE_INT, &color_i, 0, MLISP_ENV_FLAG_BUILTIN );
    color_i = RETROFLAT_COLOR_BLUE;
    retval = mlisp_env_set(
-      &(data->parser), &(data->exec), "blue", 4,
-      MLISP_TYPE_INT, &color_i, data, MLISP_ENV_FLAG_BUILTIN );
+      &(data->exec), "blue", 4,
+      MLISP_TYPE_INT, &color_i, 0, MLISP_ENV_FLAG_BUILTIN );
 
    retval = mlisp_env_set(
-      &(data->parser), &(data->exec), "rect", 4,
-      MLISP_TYPE_CB, mlisp_cb_shape,
-      data, MLISP_ENV_FLAG_BUILTIN | MLISP_CB_SHAPE_FLAG_RECT );
+      &(data->exec), "rect", 4, MLISP_TYPE_CB, mlisp_cb_shape,
+      0, MLISP_ENV_FLAG_BUILTIN | MLISP_CB_SHAPE_FLAG_RECT );
    retval = mlisp_env_set(
-      &(data->parser), &(data->exec), "rectf", 5,
-      MLISP_TYPE_CB, mlisp_cb_shape,
-      data, MLISP_ENV_FLAG_BUILTIN | MLISP_CB_SHAPE_FLAG_RECT | 
+      &(data->exec), "rectf", 5, MLISP_TYPE_CB, mlisp_cb_shape,
+      0, MLISP_ENV_FLAG_BUILTIN | MLISP_CB_SHAPE_FLAG_RECT | 
          MLISP_CB_SHAPE_FLAG_FILL );
    retval = mlisp_env_set(
-      &(data->parser), &(data->exec), "ellipse", 4,
-      MLISP_TYPE_CB, mlisp_cb_shape,
-      data, MLISP_ENV_FLAG_BUILTIN | MLISP_CB_SHAPE_FLAG_ELLIPSE );
+      &(data->exec), "ellipse", 4, MLISP_TYPE_CB, mlisp_cb_shape,
+      0, MLISP_ENV_FLAG_BUILTIN | MLISP_CB_SHAPE_FLAG_ELLIPSE );
    maug_cleanup_if_not_ok();
 
    debug_printf( 1,
@@ -323,7 +325,7 @@ int main( int argc, char** argv ) {
          mdata_vector_sz( &(data->exec.per_node_child_idx) ) +
          mdata_vector_sz( &(data->exec.stack) ) +
          mdata_vector_sz( &(data->exec.lambda_trace) ) +
-         mdata_vector_sz( &(data->exec.env) ) );
+         mdata_table_sz( &(data->exec.env[0]) ) );
 
    data->do_exec = 1;
 
@@ -339,7 +341,8 @@ int main( int argc, char** argv ) {
       sizeof( struct MLISP_EXEC_STATE ) +
       mdata_vector_sz( &(data->exec.per_node_child_idx) ) +
       mdata_vector_sz( &(data->exec.stack) ) +
-      mdata_vector_sz( &(data->exec.env) ) );
+      /* TODO: Include all envs. */
+      mdata_table_sz( &(data->exec.env[0]) ) );
 
 cleanup:
 
