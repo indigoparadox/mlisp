@@ -16,7 +16,7 @@ include maug/Makefile.inc
 # Target-specific options.
 .PHONY: clean
 
-all: mlisp.$(shell uname -m).ale mlisp.$(shell uname -m).sdl mlispd.exe mlispw.exe mlispnt.exe mlisp.html mlispb.exe mlispnts.exe
+all: mlisp.$(MAUG_UNIX).ale mlisp.$(MAUG_UNIX).sdl mlispd.exe mlispw.exe mlispnt.exe mlisp.html mlispb.exe mlispnts.exe
 
 # Unix (Allegro)
 
