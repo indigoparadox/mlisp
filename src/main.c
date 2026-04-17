@@ -7,7 +7,6 @@
 
 #include <mhtml.h>
 #include <mcss.h>
-#include <mcssmerg.h>
 #include <retrofnt.h>
 #include <retrogui.h>
 #include <retrohtr.h>
@@ -239,10 +238,9 @@ int main( int argc, char** argv ) {
 
    logging_init();
 
-   data_h = maug_malloc( 1, sizeof( struct MLISP_DATA ) );
-   maug_cleanup_if_null_alloc( MAUG_MHANDLE, data_h );
+   maug_malloc_test( data_h, 1, sizeof( struct MLISP_DATA ) );
    maug_mlock( data_h, data );
-   maug_cleanup_if_null_alloc( struct MLISP_DATA*, data );
+   maug_cleanup_if_null_lock( struct MLISP_DATA*, data );
    maug_mzero( data, sizeof( struct MLISP_DATA ) );
    
    data->last_y = 10;
